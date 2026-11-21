@@ -1,6 +1,7 @@
 import { AudioEngine, DemoSource } from './audio.js';
 import { Renderer } from './renderer.js';
-import { buildSegments, resetBeam, MAX_SEGS, SEG_FLOATS } from './modes.js';
+import { buildSegments, resetBeam, resetLevels, MAX_SEGS, SEG_FLOATS } from './modes.js';
+import { exportVideo } from './export.js';
 import { BUILTIN, DEFAULTS, sanitize, loadSettings, saveSettings, loadUserPresets, saveUserPresets } from './presets.js';
 import { buildPanel } from './ui.js';
 
@@ -67,7 +68,7 @@ function onSettingsChanged(key) {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => saveSettings(settings), 300);
   if (!key || key === 'grid' || key === 'color' || key === 'zoom') drawGrid();
-  if (!key || key === 'mode' || key === 'xyMode') resetBeam();
+  if (!key || ['mode', 'xyMode', 'bands', 'bandLayout'].includes(key)) resetBeam();
 }
 
 const refreshPanel = buildPanel($('controls'), settings, onSettingsChanged);
@@ -154,7 +155,7 @@ fillPresetSelect();
 // ---------- audio & transport ----------
 
 async function loadFile(file) {
-  if (!file) return;
+  if (!file || exporting) return;
   toast(`Cargando ${file.name}…`);
   try {
     await audio.load(await file.arrayBuffer());
@@ -167,6 +168,7 @@ async function loadFile(file) {
   $('dur').textContent = fmtTime(audio.duration);
   $('play').disabled = false;
   $('seek').disabled = false;
+  $('export').disabled = false;
   resetBeam();
   audio.play();
   toast(file.name);
@@ -207,7 +209,7 @@ $('full').addEventListener('click', toggleFullscreen);
 $('toggle').addEventListener('click', () => document.body.classList.toggle('hide-panel'));
 
 window.addEventListener('keydown', (e) => {
-  if (e.target.matches('input[type=text]')) return;
+  if (e.target.matches('input[type=text]') || exporting || dlg.open) return;
   if (e.code === 'Space') { e.preventDefault(); audio.toggle(); }
   else if (e.key === 'f' || e.key === 'F') toggleFullscreen();
   else if (e.key === 'h' || e.key === 'H') document.body.classList.toggle('hide-ui');
@@ -255,44 +257,19 @@ function drawGrid() {
 // line every frame, so they need far less than the XY cloud to look equally bright.
 const ENERGY = { xy: 0.02, wave: 0.012, radial: 0.012 };
 
-let lastNow = performance.now();
-let lastPos = 0;
-let lastSrc = null;
-let spinAngle = 0;
-let hueShift = 0;
+// Where each band goes when they are shown apart: stacked rows for the waveform,
+// concentric rings for radial, side by side for XY.
+function bandLayout(s, band, xr, yr) {
+  if (band < 0 || s.bandLayout !== 'split') return null;
+  const k = band - 1;
+  if (s.mode === 'wave') return { sx: 1, sy: 0.36, ox: 0, oy: -k * 0.62 * yr };
+  if (s.mode === 'radial') { const sc = [0.45, 0.72, 1][band]; return { sx: sc, sy: sc, ox: 0, oy: 0 }; }
+  return { sx: 0.55, sy: 0.55, ox: k * xr * 0.6, oy: 0 };
+}
 
-function frame(now) {
-  requestAnimationFrame(frame);
-  const dt = Math.min(0.1, Math.max(0.001, (now - lastNow) / 1000));
-  lastNow = now;
-
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const w = Math.max(2, Math.round(window.innerWidth * dpr));
-  const h = Math.max(2, Math.round(window.innerHeight * dpr));
-  if (renderer.resize(w, h)) { drawGrid(); resetBeam(); }
-  const minDim = Math.min(w, h);
-
-  const src = audio.buffer ? audio : demo;
-  const live = src === demo || audio.playing;
-  const pos = src.visualSample;
-  if (src !== lastSrc) { lastSrc = src; lastPos = pos; resetBeam(); }
-
-  const s = settings;
-  const count = buildSegments(s, { src, pos, prevPos: lastPos, live, xr: w / minDim / s.zoom }, segs);
-  lastPos = pos;
-
-  // While paused the last frame is redrawn from scratch every time, so settings stay live.
-  const tau = s.persistence;
-  const decay = live && tau > 0 ? Math.exp(-dt / tau) : 0;
-  const total = s.intensity * ENERGY[s.mode] * minDim * minDim * (live ? dt / (tau + 1 / 60) : 1);
-  const each = count ? total / count : 0;
-  for (let i = 0; i < count; i++) segs[i * SEG_FLOATS + 4] = each;
-
-  if (live) {
-    spinAngle += s.spin * dt;
-    hueShift = (hueShift + s.hueSpeed * dt) % 360;
-  }
-  const [hue, sat, lum] = rgbToHsl(hexToRgb(s.color));
+// Symmetry copies: a rotation (and optional mirror) matrix plus a color for each.
+function makeCopies(s, hex) {
+  const [hue, sat, lum] = rgbToHsl(hexToRgb(hex));
   const copies = [];
   const base = (s.rotation + spinAngle) * Math.PI / 180;
   for (let k = 0; k < s.symmetry; k++) {
@@ -302,15 +279,77 @@ function frame(now) {
     copies.push({ mat: [c, sn, -sn, c], color });
     if (s.mirror) copies.push({ mat: [-c, -sn, -sn, c], color });
   }
+  return copies;
+}
 
-  renderer.render({
-    segs, count, decay, copies,
-    sigma: s.beamWidth * dpr,
-    scale: minDim / 2 * s.zoom,
-    glow: s.glow,
-    glowSize: s.glowSize,
-    bg: hexToRgb(s.background),
-  });
+let lastNow = performance.now();
+let lastPos = 0;
+let lastSrc = null;
+let spinAngle = 0;
+let hueShift = 0;
+let exporting = false;
+
+// Draws one frame. o: { w, h, px, src, pos, prevPos, dt, live }
+// px is device pixels per CSS pixel, so widths look the same at any output resolution.
+function renderFrame(o) {
+  const s = settings;
+  const { w, h, dt, live } = o;
+  const minDim = Math.min(w, h);
+  if (live) {
+    spinAngle += s.spin * dt;
+    hueShift = (hueShift + s.hueSpeed * dt) % 360;
+  }
+
+  // While paused the last frame is redrawn from scratch every time, so settings stay live.
+  const tau = s.persistence;
+  const decay = live && tau > 0 ? Math.exp(-dt / tau) : 0;
+  const total = s.intensity * ENERGY[s.mode] * minDim * minDim * (live ? dt / (tau + 1 / 60) : 1);
+  const xr = w / minDim / s.zoom, yr = h / minDim / s.zoom;
+
+  // One layer for the whole signal, or one per frequency band.
+  const layers = s.bands
+    ? [
+      { band: 0, gain: s.gainLow, color: s.colorLow },
+      { band: 1, gain: s.gainMid, color: s.colorMid },
+      { band: 2, gain: s.gainHigh, color: s.colorHigh },
+    ]
+    : [{ band: -1, gain: 1, color: s.color }];
+
+  renderer.begin(decay);
+  for (const layer of layers) {
+    const ctx = { src: o.src, pos: o.pos, prevPos: o.prevPos, live, xr, gain: s.gain * layer.gain };
+    const count = buildSegments(s, ctx, segs, layer.band, bandLayout(s, layer.band, xr, yr));
+    if (!count || layer.gain <= 0) continue;
+    const each = total * (s.bands ? 0.7 : 1) / count;
+    for (let i = 0; i < count; i++) segs[i * SEG_FLOATS + 4] = each;
+    renderer.draw({
+      segs, count,
+      copies: makeCopies(s, layer.color),
+      sigma: s.beamWidth * o.px,
+      scale: minDim / 2 * s.zoom,
+    });
+  }
+  renderer.end({ glow: s.glow, glowSize: s.glowSize, glowScale: o.px, bg: hexToRgb(s.background) });
+}
+
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.1, Math.max(0.001, (now - lastNow) / 1000));
+  lastNow = now;
+  if (exporting) return;
+
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = Math.max(2, Math.round(window.innerWidth * dpr));
+  const h = Math.max(2, Math.round(window.innerHeight * dpr));
+  if (renderer.resize(w, h)) { drawGrid(); resetBeam(); }
+
+  const src = audio.buffer ? audio : demo;
+  const live = src === demo || audio.playing;
+  const pos = src.visualSample;
+  if (src !== lastSrc) { lastSrc = src; lastPos = pos; resetBeam(); }
+
+  renderFrame({ w, h, px: dpr, src, pos, prevPos: lastPos, dt, live });
+  lastPos = pos;
 
   $('play').textContent = audio.playing ? '⏸' : '▶';
   if (audio.buffer && !seeking) {
@@ -320,3 +359,98 @@ function frame(now) {
 }
 
 requestAnimationFrame(frame);
+
+// ---------- video export ----------
+
+const dlg = $('exportDlg');
+let cancelExport = false;
+
+$('export').addEventListener('click', () => {
+  $('exInfo').textContent = 'Se exporta la canción completa con los ajustes actuales, en MP4.';
+  $('exProgress').hidden = true;
+  dlg.showModal();
+});
+$('exCancel').addEventListener('click', () => { if (exporting) cancelExport = true; else dlg.close(); });
+dlg.addEventListener('cancel', (e) => { if (exporting) { e.preventDefault(); cancelExport = true; } });
+$('exStart').addEventListener('click', runExport);
+
+async function runExport() {
+  if (exporting || !audio.buffer) return;
+  const [W, H] = $('exRes').value.split('x').map(Number);
+  const fps = Number($('exFps').value);
+  const sr = audio.sampleRate;
+  // Same beam and glow size relative to the picture as in the window right now.
+  const px = Math.min(W, H) / Math.min(window.innerWidth, window.innerHeight);
+
+  audio.pause();
+  exporting = true;
+  cancelExport = false;
+  document.body.classList.add('exporting');
+  $('exStart').disabled = true;
+  $('exRes').disabled = $('exFps').disabled = true;
+  $('exCancel').textContent = 'Cancelar';
+  $('exProgress').hidden = false;
+  $('exProgress').value = 0;
+
+  const saved = { spinAngle, hueShift };
+  spinAngle = 0;
+  hueShift = 0;
+  renderer.resize(W, H);
+  renderer.begin(0);
+  drawGrid();
+  resetBeam();
+  resetLevels();
+
+  // Each frame is the beam picture plus the graticule, flattened into one canvas.
+  const out = document.createElement('canvas');
+  out.width = W;
+  out.height = H;
+  const g = out.getContext('2d');
+  let prevPos = -Math.round(sr / fps);
+  const started = performance.now();
+
+  try {
+    const result = await exportVideo({
+      L: audio.L, R: audio.R, sampleRate: sr, width: W, height: H, fps,
+      isCancelled: () => cancelExport,
+      drawFrame(pos) {
+        renderFrame({ w: W, h: H, px, src: audio, pos, prevPos, dt: 1 / fps, live: true });
+        prevPos = pos;
+        g.drawImage($('gl'), 0, 0);
+        if (settings.grid) g.drawImage(gridCanvas, 0, 0);
+        return out;
+      },
+      onProgress(fraction) {
+        $('exProgress').value = fraction;
+        const elapsed = (performance.now() - started) / 1000;
+        const left = fraction > 0.02 ? ` · faltan ~${fmtTime(elapsed / fraction - elapsed)}` : '';
+        $('exInfo').textContent = `Renderizando ${Math.round(fraction * 100)}%${left}`;
+      },
+    });
+    if (result) {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(result.blob);
+      a.download = `${($('title').textContent || 'waveviz').replace(/[\\/:*?"<>|]+/g, '_')}.mp4`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+      const compat = result.video === 'avc' && result.audio === 'aac' ? '' : ` (códecs ${result.video}/${result.audio})`;
+      toast(`Video exportado${compat}`);
+      dlg.close();
+    } else {
+      $('exInfo').textContent = 'Exportación cancelada.';
+    }
+  } catch (err) {
+    console.error(err);
+    $('exInfo').textContent = `No se pudo exportar: ${err.message}`;
+  } finally {
+    exporting = false;
+    document.body.classList.remove('exporting');
+    $('exStart').disabled = false;
+    $('exRes').disabled = $('exFps').disabled = false;
+    $('exCancel').textContent = 'Cerrar';
+    $('exProgress').hidden = true;
+    ({ spinAngle, hueShift } = saved);
+    lastSrc = null; // makes the live loop start a fresh trace
+    resetLevels();
+  }
+}

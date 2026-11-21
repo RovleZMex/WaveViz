@@ -42,9 +42,38 @@
     <span id="dur" class="time">0:00</span>
     <span id="title"></span>
     <label class="vol" title="Volumen">🔊 <input id="volume" type="range" min="0" max="1" step="0.01" value="0.8"></label>
+    <button id="export" disabled title="Guardar la visualización como video con audio">Exportar video</button>
     <button id="full" title="Pantalla completa (F)">⛶</button>
     <button id="toggle" title="Mostrar/ocultar ajustes (H)">⚙</button>
   </footer>
+
+  <dialog id="exportDlg">
+    <h2>Exportar video</h2>
+    <div class="ctl">
+      <label for="exRes">Resolución</label>
+      <select id="exRes">
+        <option value="1280x720">1280 × 720 (HD)</option>
+        <option value="1920x1080" selected>1920 × 1080 (Full HD)</option>
+        <option value="2560x1440">2560 × 1440 (2K)</option>
+        <option value="3840x2160">3840 × 2160 (4K)</option>
+        <option value="1080x1920">1080 × 1920 (vertical)</option>
+        <option value="1080x1080">1080 × 1080 (cuadrado)</option>
+      </select>
+    </div>
+    <div class="ctl">
+      <label for="exFps">Cuadros por segundo</label>
+      <select id="exFps">
+        <option value="60" selected>60</option>
+        <option value="30">30</option>
+      </select>
+    </div>
+    <p id="exInfo" class="keys">Se exporta la canción completa con los ajustes actuales, en MP4.</p>
+    <progress id="exProgress" max="1" value="0" hidden></progress>
+    <div class="row">
+      <button id="exCancel">Cerrar</button>
+      <button id="exStart" class="primary">Exportar</button>
+    </div>
+  </dialog>
 
   <div id="drop">Suelta el audio para cargarlo</div>
   <div id="toast"></div>

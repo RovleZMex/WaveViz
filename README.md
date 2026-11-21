@@ -32,7 +32,15 @@ xattr -cr /Applications/WaveViz.app
 | Onda | La forma de onda clásica, con trigger para que se quede quieta. |
 | Radial | La onda enrollada en un anillo. |
 
-Presets incluidos: Osciloscopio XY, Retrato de fase, Mandala, Onda clásica y Anillo. Todo es ajustable desde el panel (color, ciclo de color, grosor, persistencia, resplandor, ganancia, zoom, rotación, giro, simetría, espejo, fondo, retícula) y puedes guardar tus propios presets, exportarlos a JSON e importarlos.
+Presets incluidos: Osciloscopio XY, Retrato de fase, Mandala, tres de bandas (onda, XY y anillos), Onda clásica y Anillo. Todo es ajustable desde el panel (color, ciclo de color, grosor, persistencia, resplandor, ganancia, zoom, rotación, giro, simetría, espejo, fondo, retícula) y puedes guardar tus propios presets, exportarlos a JSON e importarlos.
+
+### Bandas de frecuencia
+
+Con **Separar graves / medios / agudos** el audio se filtra en tres bandas y cada una se dibuja como su propio trazo, con su color y su nivel (nivel 0 oculta la banda). Se pueden mostrar separadas (filas en Onda, anillos concéntricos en Radial, lado a lado en XY) o superpuestas, y los cortes de frecuencia son ajustables. **Nivel automático** agranda las señales débiles, como los agudos, para que siempre se vean.
+
+### Exportar video
+
+**Exportar video** guarda la canción completa con los ajustes actuales en un MP4 con audio (720p a 4K, vertical o cuadrado, 30 o 60 fps). Se renderiza cuadro por cuadro fuera de tiempo real, así que no pierde cuadros aunque el equipo sea lento. El archivo se arma en memoria: para canciones largas en 4K hace falta bastante RAM.
 
 Atajos: `Espacio` play/pausa · `F` pantalla completa · `H` ocultar controles · `←` `→` saltar 5 s.
 
@@ -42,6 +50,7 @@ Atajos: `Espacio` play/pausa · `F` pantalla completa · `H` ocultar controles �
 - `src/audio.js` — decodificación y reproducción; entrega las muestras exactas que están sonando.
 - `src/modes.js` — convierte muestras en segmentos de línea para cada modo.
 - `src/renderer.js` — render WebGL2 del haz (acumulación en punto flotante, decaimiento, glow, tone mapping).
+- `src/export.js` — exportación a MP4 (WebCodecs + `src/vendor/mp4-muxer.mjs`, licencia MIT).
 - `src/presets.js` — ajustes por defecto, presets incluidos y el esquema que genera el panel.
 - `src/ui.js`, `src/app.js` — panel de controles, transporte y bucle de render.
 

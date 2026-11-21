@@ -227,27 +227,31 @@ export class Renderer {
     }
   }
 
-  // p: { segs, count, decay, copies:[{mat, color}], sigma, scale, glow, glowSize, bg }
-  render(p) {
-    const gl = this.gl;
-    const { accum, bloomA, bloomB } = this;
+  // A frame is begin() -> draw() once per layer -> end().
 
-    // 1. Fade what is already on the phosphor.
+  // Fades what is already on the phosphor. decay: fraction of light kept (0 = clear).
+  begin(decay) {
+    const gl = this.gl;
     gl.bindVertexArray(this.emptyVao);
-    this.pass(this.fill, accum);
-    if (p.decay <= 0) {
+    this.pass(this.fill, this.accum);
+    if (decay <= 0) {
       gl.disable(gl.BLEND);
       gl.clearColor(0, 0, 0, 1);
       gl.clear(gl.COLOR_BUFFER_BIT);
     } else {
       gl.enable(gl.BLEND);
-      gl.blendColor(p.decay, p.decay, p.decay, 1);
+      gl.blendColor(decay, decay, decay, 1);
       gl.blendFunc(gl.ZERO, gl.CONSTANT_COLOR);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
+  }
 
-    // 2. Add the new beam segments.
+  // Adds beam segments. p: { segs, count, copies:[{mat, color}], sigma, scale }
+  draw(p) {
+    const gl = this.gl;
     if (p.count > 0) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.accum.fbo);
+      gl.viewport(0, 0, this.width, this.height);
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.ONE, gl.ONE);
       gl.useProgram(this.line.prog);
@@ -265,16 +269,27 @@ export class Renderer {
         gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, p.count);
       }
     }
+  }
 
-    // 3. Glow: downsample and blur.
+  // Blurs a copy for the glow and tone-maps everything to the screen.
+  // p: { glow, glowSize, glowScale, bg } — glowScale is device pixels per CSS pixel, so the
+  // glow keeps its apparent size at any resolution.
+  end(p) {
+    const gl = this.gl;
+    const { accum, bloomA, bloomB } = this;
     gl.disable(gl.BLEND);
     gl.bindVertexArray(this.emptyVao);
     if (p.glow > 0) {
       this.pass(this.down, bloomA, accum.tex);
       gl.uniform2f(this.down.u.uTexel, 1 / accum.w, 1 / accum.h);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
-      for (let i = 0; i < 2; i++) {
-        const r = p.glowSize * (i + 1);
+      // Passes with growing radius; enough of them to reach the blur width we need.
+      const k = Math.max(1, p.glowScale || 1);
+      let passes = 2, sum = 5;
+      while (sum < 5 * k * k && passes < 6) { passes++; sum += passes * passes; }
+      const unit = p.glowSize * Math.sqrt(5 * k * k / sum);
+      for (let i = 0; i < passes; i++) {
+        const r = unit * (i + 1);
         this.pass(this.blur, bloomB, bloomA.tex);
         gl.uniform2f(this.blur.u.uStep, r / bloomA.w, 0);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -284,7 +299,6 @@ export class Renderer {
       }
     }
 
-    // 4. Tone-map to the screen.
     this.pass(this.composite, null, accum.tex);
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, bloomA.tex);

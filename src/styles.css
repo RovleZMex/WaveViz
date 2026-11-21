@@ -144,3 +144,21 @@ body.dragging #drop { display: flex; }
   transition: opacity 0.3s;
 }
 #toast.show { opacity: 1; }
+
+dialog {
+  width: 340px;
+  padding: 16px 18px;
+  color: inherit;
+  background: #121716;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+}
+dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
+dialog .row { margin-top: 14px; }
+progress { width: 100%; height: 8px; accent-color: #4fc887; margin-top: 8px; }
+
+/* While exporting, the canvas has the video's resolution: show it whole, as a preview. */
+body.exporting canvas { object-fit: contain; }
+body.exporting .ui, body.exporting #hint { opacity: 0; pointer-events: none; }
+body.exporting dialog::backdrop { background: transparent; }
+body.exporting dialog { margin: auto 16px 16px auto; }
