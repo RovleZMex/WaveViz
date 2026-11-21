@@ -20,7 +20,7 @@
     "appId": "com.waveviz.app",
     "productName": "WaveViz",
     "files": ["main.js", "src/**/*"],
-    "mac": { "target": ["dmg"], "category": "public.app-category.music" },
+    "mac": { "target": ["dmg"], "category": "public.app-category.music", "identity": "-" },
     "win": { "target": ["portable"] },
     "linux": { "target": ["AppImage"] }
   }

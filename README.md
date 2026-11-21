@@ -18,7 +18,11 @@ npm start
 
 Arrastra una canción a la ventana o pulsa **Abrir audio**.
 
-Para generar el ejecutable (`dist/`): `npm run dist:win` en Windows (un `.exe` portable) o `npm run dist:mac` en macOS (un `.dmg`). Cada push a GitHub también los compila; se descargan desde la pestaña **Actions** del repositorio. Los binarios no están firmados: en macOS ábrelo la primera vez con clic derecho → Abrir; en Windows, "Más información → Ejecutar de todas formas".
+Para generar el ejecutable (`dist/`): `npm run dist:win` en Windows (un `.exe` portable) o `npm run dist:mac` en macOS (un `.dmg`). Cada push a GitHub también los compila; se descargan desde la pestaña **Actions** del repositorio. Los binarios no están firmados por un desarrollador registrado. En Windows: "Más información → Ejecutar de todas formas". En macOS, si al abrirla dice que está dañada o que no se puede verificar, arrástrala a Aplicaciones y ejecuta:
+
+```bash
+xattr -cr /Applications/WaveViz.app
+```
 
 ## Modos y presets
 
