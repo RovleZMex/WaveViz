@@ -31,8 +31,11 @@ xattr -cr /Applications/WaveViz.app
 | Osciloscopio XY | Canal izquierdo en X y derecho en Y (figuras de Lissajous). También Mid/Side y "retardo", que enfrenta la señal con una copia retrasada de sí misma y saca patrones incluso de audio mono. |
 | Onda | La forma de onda clásica, con trigger para que se quede quieta. |
 | Radial | La onda enrollada en un anillo. |
+| Túnel | La profundidad es el tiempo: cada anillo es una foto de la onda que nace en el fondo y vuela hacia ti. |
+| Esfera | La onda enrollada en espiral sobre un globo que gira en 3D. |
+| Cantante | Una cara que canta la canción: la boca se abre con el volumen, las cejas saltan con los graves y la cabeza es la propia onda. Con bandas separadas se vuelve un coro de tres. |
 
-Presets incluidos: Osciloscopio XY, Retrato de fase, Mandala, tres de bandas (onda, XY y anillos), Onda clásica y Anillo. Todo es ajustable desde el panel (color, ciclo de color, grosor, persistencia, resplandor, ganancia, zoom, rotación, giro, simetría, espejo, fondo, retícula) y puedes guardar tus propios presets, exportarlos a JSON e importarlos.
+Presets incluidos: Osciloscopio XY, Retrato de fase, Mandala, tres de bandas (onda, XY y anillos), Túnel, Esfera, Cantante, Coro, Onda clásica y Anillo. Todo es ajustable desde el panel (color, ciclo de color, grosor, persistencia, resplandor, ganancia, zoom, rotación, giro, simetría, espejo, fondo, retícula) y puedes guardar tus propios presets, exportarlos a JSON e importarlos.
 
 ### Bandas de frecuencia
 

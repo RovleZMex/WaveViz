@@ -1,6 +1,6 @@
 import { AudioEngine, DemoSource } from './audio.js';
 import { Renderer } from './renderer.js';
-import { buildSegments, resetBeam, resetLevels, MAX_SEGS, SEG_FLOATS } from './modes.js';
+import { buildSegments, resetBeam, resetLevels, WEIGHTED, MAX_SEGS, SEG_FLOATS } from './modes.js';
 import { exportVideo } from './export.js';
 import { BUILTIN, DEFAULTS, sanitize, loadSettings, saveSettings, loadUserPresets, saveUserPresets } from './presets.js';
 import { buildPanel } from './ui.js';
@@ -259,6 +259,8 @@ function drawGrid() {
 // Light deposited per second, relative to screen area. Windowed modes redraw a thin
 // line every frame, so they need far less than the XY cloud to look equally bright.
 const ENERGY = { xy: 0.02, wave: 0.012, radial: 0.012 };
+// For the figure modes (tunnel, sphere, singer): light per unit of line length instead.
+const LINE_ENERGY = 0.003;
 
 // Where each band goes when they are shown apart: stacked rows for the waveform,
 // concentric rings for radial, side by side for XY.
@@ -310,11 +312,15 @@ function renderFrame(o) {
     spinAngle += s.spin * dt;
     hueShift = (hueShift + s.hueSpeed * dt) % 360;
   }
+  // With the animation off, go back to the configured angle and color.
+  if (s.spin === 0) spinAngle = 0;
+  if (s.hueSpeed === 0) hueShift = 0;
 
   // While paused the last frame is redrawn from scratch every time, so settings stay live.
   const tau = s.persistence;
   const decay = live && tau > 0 ? Math.exp(-dt / tau) : 0;
-  const total = s.intensity * ENERGY[s.mode] * minDim * minDim * (live ? dt / (tau + 1 / 60) : 1);
+  const light = s.intensity * minDim * minDim * (live ? dt / (tau + 1 / 60) : 1) * (s.bands ? 0.7 : 1);
+  const weighted = WEIGHTED.has(s.mode);
   const xr = o.vw / minDim / s.zoom, yr = h / minDim / s.zoom;
 
   // One layer for the whole signal, or one per frequency band.
@@ -328,11 +334,16 @@ function renderFrame(o) {
 
   renderer.begin(decay);
   for (const layer of layers) {
-    const ctx = { src: o.src, pos: o.pos, prevPos: o.prevPos, live, xr, gain: s.gain * layer.gain };
+    const ctx = { src: o.src, pos: o.pos, prevPos: o.prevPos, live, xr, yr, gain: s.gain * layer.gain };
     const count = buildSegments(s, ctx, segs, layer.band, bandLayout(s, layer.band, xr, yr));
     if (!count || layer.gain <= 0) continue;
-    const each = total * (s.bands ? 0.7 : 1) / count;
-    for (let i = 0; i < count; i++) segs[i * SEG_FLOATS + 4] = each;
+    if (weighted) {
+      const k = light * LINE_ENERGY;
+      for (let i = 0; i < count; i++) segs[i * SEG_FLOATS + 4] *= k;
+    } else {
+      const each = light * ENERGY[s.mode] / count;
+      for (let i = 0; i < count; i++) segs[i * SEG_FLOATS + 4] = each;
+    }
     renderer.draw({
       segs, count,
       copies: makeCopies(s, layer.color),

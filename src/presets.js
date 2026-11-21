@@ -9,6 +9,8 @@ export const DEFAULTS = {
   trigger: true,
   splitStereo: false,
   radius: 0.5,
+  detail: 0.35,
+  motion: 1,
   gain: 1,
   autoLevel: false,
   zoom: 1,
@@ -64,6 +66,31 @@ export const BUILTIN = [
     settings: { mode: 'radial', bands: true, autoLevel: true, gainMid: 1, gainHigh: 1, bandLayout: 'split', timebaseMs: 40, radius: 0.5, persistence: 0.15, glow: 1, spin: 6, grid: false, background: '#030406' },
   },
   {
+    name: 'Túnel',
+    settings: {
+      mode: 'tunnel', autoLevel: true, timebaseMs: 30, detail: 0.35, color: '#ff4fd8', hueSpeed: 20, persistence: 0.05,
+      glow: 1, glowSize: 1.3, spin: 10, grid: false, background: '#05020a',
+    },
+  },
+  {
+    name: 'Esfera',
+    settings: {
+      mode: 'sphere', autoLevel: true, timebaseMs: 40, detail: 0.4, color: '#4fd8ff', persistence: 0.05, glow: 0.9,
+      grid: false, background: '#01040a',
+    },
+  },
+  {
+    name: 'Cantante',
+    settings: { mode: 'face', autoLevel: true, color: '#ffe14f', persistence: 0.04, glow: 0.8, beamWidth: 1.8, grid: false, background: '#070502' },
+  },
+  {
+    name: 'Coro (cantantes por banda)',
+    settings: {
+      mode: 'face', bands: true, autoLevel: true, gainMid: 1, gainHigh: 1, bandLayout: 'split', persistence: 0.04, glow: 0.8,
+      beamWidth: 1.8, grid: false, background: '#040406',
+    },
+  },
+  {
     name: 'Onda clásica',
     settings: { mode: 'wave', timebaseMs: 25, gain: 1.2, color: '#ffb000', background: '#070400', persistence: 0.08, beamWidth: 1.6 },
   },
@@ -78,22 +105,26 @@ export const BUILTIN = [
 
 const isXY = (s) => s.mode === 'xy';
 const hasBands = (s) => s.bands;
-const isWindowed = (s) => s.mode !== 'xy';
+const isWindowed = (s) => ['wave', 'radial', 'tunnel', 'sphere'].includes(s.mode);
+const hasTrigger = (s) => ['wave', 'radial', 'sphere'].includes(s.mode);
+const isScene = (s) => ['tunnel', 'sphere', 'face'].includes(s.mode);
 
 export const SCHEMA = [
   {
     title: 'Visualización',
     items: [
-      { key: 'mode', type: 'select', label: 'Modo', options: [['xy', 'Osciloscopio XY'], ['wave', 'Onda'], ['radial', 'Radial']] },
+      { key: 'mode', type: 'select', label: 'Modo', options: [['xy', 'Osciloscopio XY'], ['wave', 'Onda'], ['radial', 'Radial'], ['tunnel', 'Túnel'], ['sphere', 'Esfera'], ['face', 'Cantante']] },
       {
         key: 'xyMode', type: 'select', label: 'Entrada XY', when: isXY,
         options: [['lr', 'Izquierdo → X, Derecho → Y'], ['ms', 'Mid/Side (rotado 45°)'], ['delay', 'Retardo (retrato de fase)']],
       },
       { key: 'delayMs', type: 'range', label: 'Retardo', min: 0.2, max: 20, step: 0.1, unit: ' ms', when: (s) => isXY(s) && s.xyMode === 'delay' },
       { key: 'timebaseMs', type: 'range', label: 'Ventana de tiempo', min: 5, max: 150, step: 1, unit: ' ms', when: isWindowed },
-      { key: 'trigger', type: 'check', label: 'Estabilizar (trigger)', when: isWindowed },
+      { key: 'trigger', type: 'check', label: 'Estabilizar (trigger)', when: hasTrigger },
       { key: 'splitStereo', type: 'check', label: 'Separar canales L/R', when: (s) => s.mode === 'wave' },
       { key: 'radius', type: 'range', label: 'Radio', min: 0.1, max: 0.9, step: 0.01, when: (s) => s.mode === 'radial' },
+      { key: 'detail', type: 'range', label: 'Detalle', min: 0, max: 1, step: 0.01, when: (s) => s.mode === 'tunnel' || s.mode === 'sphere' },
+      { key: 'motion', type: 'range', label: 'Movimiento', min: 0, max: 3, step: 0.05, unit: '×', when: isScene },
       { key: 'gain', type: 'range', label: 'Ganancia de señal', min: 0.1, max: 6, step: 0.05, unit: '×' },
       { key: 'autoLevel', type: 'check', label: 'Nivel automático' },
       { key: 'zoom', type: 'range', label: 'Zoom', min: 0.1, max: 3, step: 0.01, unit: '×' },
