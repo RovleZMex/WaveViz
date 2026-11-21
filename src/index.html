@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:">
+  <title>WaveViz</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <canvas id="gl"></canvas>
+  <canvas id="grid"></canvas>
+
+  <div id="hint">
+    <h1>WaveViz</h1>
+    <p>Arrastra una canción aquí o pulsa <b>Abrir audio</b></p>
+  </div>
+
+  <aside id="panel" class="ui">
+    <div class="section">
+      <h2>Presets</h2>
+      <select id="presetSelect"></select>
+      <div class="row">
+        <input id="presetName" type="text" placeholder="Nombre del preset" maxlength="40">
+        <button id="presetSave" title="Guardar los ajustes actuales">Guardar</button>
+      </div>
+      <div class="row">
+        <button id="presetDelete">Borrar</button>
+        <button id="presetExport">Exportar</button>
+        <button id="presetImport">Importar</button>
+      </div>
+    </div>
+    <div id="controls"></div>
+    <p class="keys">Espacio: play/pausa · F: pantalla completa · H: ocultar controles · ←/→: ±5 s</p>
+  </aside>
+
+  <footer id="bar" class="ui">
+    <button id="open" class="primary">Abrir audio</button>
+    <button id="play" disabled title="Play / pausa (Espacio)">▶</button>
+    <span id="cur" class="time">0:00</span>
+    <input id="seek" type="range" min="0" max="1000" value="0" disabled>
+    <span id="dur" class="time">0:00</span>
+    <span id="title"></span>
+    <label class="vol" title="Volumen">🔊 <input id="volume" type="range" min="0" max="1" step="0.01" value="0.8"></label>
+    <button id="full" title="Pantalla completa (F)">⛶</button>
+    <button id="toggle" title="Mostrar/ocultar ajustes (H)">⚙</button>
+  </footer>
+
+  <div id="drop">Suelta el audio para cargarlo</div>
+  <div id="toast"></div>
+  <input id="file" type="file" accept="audio/*,.mp3,.wav,.flac,.ogg,.m4a,.aac,.opus" hidden>
+  <input id="importFile" type="file" accept=".json,application/json" hidden>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

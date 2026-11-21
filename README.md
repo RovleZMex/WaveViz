@@ -1,0 +1,44 @@
+# WaveViz
+
+Visualizador de música estilo osciloscopio. Le das un archivo de audio (MP3, WAV, FLAC, OGG, M4A…) y dibuja la forma de onda en tiempo real con un haz de fósforo simulado: persistencia, resplandor y brillo según la velocidad del haz, como en un osciloscopio analógico.
+
+Funciona en Windows y macOS (app de escritorio con Electron).
+
+## Usar
+
+Necesitas [Node.js](https://nodejs.org) 20 o superior.
+
+```bash
+npm install
+```
+
+```bash
+npm start
+```
+
+Arrastra una canción a la ventana o pulsa **Abrir audio**.
+
+Para generar el ejecutable (`dist/`): `npm run dist:win` en Windows (un `.exe` portable) o `npm run dist:mac` en macOS (un `.dmg`). Cada push a GitHub también los compila; se descargan desde la pestaña **Actions** del repositorio. Los binarios no están firmados: en macOS ábrelo la primera vez con clic derecho → Abrir; en Windows, "Más información → Ejecutar de todas formas".
+
+## Modos y presets
+
+| Modo | Qué dibuja |
+| --- | --- |
+| Osciloscopio XY | Canal izquierdo en X y derecho en Y (figuras de Lissajous). También Mid/Side y "retardo", que enfrenta la señal con una copia retrasada de sí misma y saca patrones incluso de audio mono. |
+| Onda | La forma de onda clásica, con trigger para que se quede quieta. |
+| Radial | La onda enrollada en un anillo. |
+
+Presets incluidos: Osciloscopio XY, Retrato de fase, Mandala, Onda clásica y Anillo. Todo es ajustable desde el panel (color, ciclo de color, grosor, persistencia, resplandor, ganancia, zoom, rotación, giro, simetría, espejo, fondo, retícula) y puedes guardar tus propios presets, exportarlos a JSON e importarlos.
+
+Atajos: `Espacio` play/pausa · `F` pantalla completa · `H` ocultar controles · `←` `→` saltar 5 s.
+
+## Código
+
+- `main.js` — ventana de Electron.
+- `src/audio.js` — decodificación y reproducción; entrega las muestras exactas que están sonando.
+- `src/modes.js` — convierte muestras en segmentos de línea para cada modo.
+- `src/renderer.js` — render WebGL2 del haz (acumulación en punto flotante, decaimiento, glow, tone mapping).
+- `src/presets.js` — ajustes por defecto, presets incluidos y el esquema que genera el panel.
+- `src/ui.js`, `src/app.js` — panel de controles, transporte y bucle de render.
+
+Para añadir un modo: una función nueva en `modes.js`, su opción en el `SCHEMA` de `presets.js` y su brillo en `ENERGY` (`app.js`).

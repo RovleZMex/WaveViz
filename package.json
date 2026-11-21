@@ -1,0 +1,27 @@
+{
+  "name": "waveviz",
+  "version": "0.1.0",
+  "description": "Visualizador de audio estilo osciloscopio",
+  "main": "main.js",
+  "author": "WaveViz",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "web": "python3 -m http.server 5173 --directory src",
+    "dist": "electron-builder --publish never",
+    "dist:win": "electron-builder --win --publish never",
+    "dist:mac": "electron-builder --mac --publish never"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.waveviz.app",
+    "productName": "WaveViz",
+    "files": ["main.js", "src/**/*"],
+    "mac": { "target": ["dmg"], "category": "public.app-category.music" },
+    "win": { "target": ["portable"] },
+    "linux": { "target": ["AppImage"] }
+  }
+}

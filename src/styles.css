@@ -1,0 +1,146 @@
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  color: #d7e0dc;
+  font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  user-select: none;
+}
+
+canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+#grid { pointer-events: none; }
+
+#hint {
+  position: fixed;
+  top: 18px;
+  left: 22px;
+  pointer-events: none;
+  opacity: 0.75;
+  transition: opacity 0.4s;
+}
+#hint h1 { margin: 0; font-size: 20px; letter-spacing: 0.12em; font-weight: 600; }
+#hint p { margin: 4px 0 0; }
+body.loaded #hint, body.hide-ui #hint { opacity: 0; }
+
+.ui { transition: opacity 0.25s, transform 0.25s; }
+body.hide-ui .ui { opacity: 0; pointer-events: none; }
+body.hide-ui { cursor: none; }
+
+#panel {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  bottom: 68px;
+  width: 290px;
+  padding: 4px 14px 10px;
+  overflow-y: auto;
+  background: rgba(12, 16, 15, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  backdrop-filter: blur(10px);
+}
+body.hide-panel #panel { opacity: 0; pointer-events: none; transform: translateX(20px); }
+
+.section { padding: 10px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.07); }
+.section:last-child { border-bottom: 0; }
+h2 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8fa39b;
+}
+
+.ctl { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: center; margin: 7px 0; }
+.ctl label { color: #c3cec9; }
+.ctl output { color: #8fa39b; font-variant-numeric: tabular-nums; }
+.ctl input[type=range], .ctl select { grid-column: 1 / -1; }
+.ctl.inline input { justify-self: end; }
+.ctl[hidden] { display: none; }
+
+.row { display: flex; gap: 6px; margin-top: 6px; }
+.row > * { flex: 1; min-width: 0; }
+.row > input[type=text] { flex: 2.2; }
+
+select, input[type=text], button {
+  font: inherit;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 5px 8px;
+}
+select { width: 100%; }
+select option, select optgroup { background: #151a19; color: #d7e0dc; }
+button { cursor: pointer; }
+button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.14); }
+button:disabled { opacity: 0.4; cursor: default; }
+button.primary { background: #2f8f58; border-color: #3fae6e; color: #fff; }
+button.primary:hover { background: #38a565; }
+:focus-visible { outline: 2px solid #6fd99b; outline-offset: 1px; }
+
+input[type=range] { width: 100%; accent-color: #4fc887; margin: 2px 0; }
+input[type=color] { width: 44px; height: 24px; padding: 0; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 5px; background: none; }
+input[type=checkbox] { accent-color: #4fc887; width: 16px; height: 16px; }
+
+.keys { color: #6f807a; font-size: 11px; margin: 10px 0 0; }
+
+#bar {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  background: rgba(12, 16, 15, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  backdrop-filter: blur(10px);
+}
+#bar button { min-width: 34px; white-space: nowrap; }
+#seek { flex: 1; min-width: 80px; }
+.time { font-variant-numeric: tabular-nums; color: #8fa39b; }
+#title { max-width: 22%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #c3cec9; }
+.vol { display: flex; align-items: center; gap: 4px; }
+.vol input { width: 80px; }
+
+#drop {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  background: rgba(10, 30, 20, 0.7);
+  border: 3px dashed #4fc887;
+  pointer-events: none;
+}
+body.dragging #drop { display: flex; }
+
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: 76px;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  background: rgba(20, 26, 24, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+#toast.show { opacity: 1; }
