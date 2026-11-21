@@ -246,7 +246,8 @@ export class Renderer {
     }
   }
 
-  // Adds beam segments. p: { segs, count, copies:[{mat, color}], sigma, scale }
+  // Adds beam segments. p: { segs, count, copies:[{mat, color}], sigma, scale, cx }
+  // cx: horizontal center of the picture in pixels.
   draw(p) {
     const gl = this.gl;
     if (p.count > 0) {
@@ -259,7 +260,7 @@ export class Renderer {
       gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
       gl.bufferSubData(gl.ARRAY_BUFFER, 0, p.segs, 0, p.count * SEG_FLOATS);
       const u = this.line.u;
-      gl.uniform2f(u.uCenter, this.width / 2, this.height / 2);
+      gl.uniform2f(u.uCenter, p.cx, this.height / 2);
       gl.uniform2f(u.uRes, this.width, this.height);
       gl.uniform1f(u.uScale, p.scale);
       gl.uniform1f(u.uSigma, p.sigma);

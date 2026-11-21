@@ -222,6 +222,9 @@ window.addEventListener('keydown', (e) => {
 // ---------- graticule overlay ----------
 
 const gridCanvas = $('grid');
+// Width in pixels of the part of the canvas the picture is fitted to (the settings
+// panel covers the rest).
+let viewW = 0;
 function drawGrid() {
   const w = renderer.width, h = renderer.height;
   if (!w) return;
@@ -230,12 +233,12 @@ function drawGrid() {
   if (!settings.grid) return;
   const g = gridCanvas.getContext('2d');
   const [r, gr, b] = hexToRgb(settings.color).map((v) => Math.round(v * 255));
-  const step = Math.min(w, h) / 10 * settings.zoom;
-  const cx = Math.round(w / 2) + 0.5, cy = Math.round(h / 2) + 0.5;
+  const step = Math.min(viewW, h) / 10 * settings.zoom;
+  const cx = Math.round(viewW / 2) + 0.5, cy = Math.round(h / 2) + 0.5;
   const lines = (alpha, every) => {
     g.strokeStyle = `rgba(${r},${gr},${b},${alpha})`;
     g.beginPath();
-    for (let i = -Math.ceil(cx / step); i <= cx / step; i++) {
+    for (let i = -Math.ceil(cx / step); i <= (w - cx) / step; i++) {
       if (!every(i)) continue;
       g.moveTo(Math.round(cx + i * step) + 0.5, 0);
       g.lineTo(Math.round(cx + i * step) + 0.5, h);
@@ -259,12 +262,19 @@ const ENERGY = { xy: 0.02, wave: 0.012, radial: 0.012 };
 
 // Where each band goes when they are shown apart: stacked rows for the waveform,
 // concentric rings for radial, side by side for XY.
+// xr, yr: half-extents of the visible area in normalized units.
 function bandLayout(s, band, xr, yr) {
   if (band < 0 || s.bandLayout !== 'split') return null;
   const k = band - 1;
   if (s.mode === 'wave') return { sx: 1, sy: 0.36, ox: 0, oy: -k * 0.62 * yr };
   if (s.mode === 'radial') { const sc = [0.45, 0.72, 1][band]; return { sx: sc, sy: sc, ox: 0, oy: 0 }; }
-  return { sx: 0.55, sy: 0.55, ox: k * xr * 0.6, oy: 0 };
+  // XY: three cells along the longer side of the view, each figure sized to its cell
+  // (zoom still scales the figures, but the cells stay put so nothing drifts off screen).
+  const wide = xr >= yr;
+  const cell = Math.min((wide ? xr : yr) / 3, wide ? yr : xr) * s.zoom * 0.85;
+  return wide
+    ? { sx: cell, sy: cell, ox: k * xr * 2 / 3, oy: 0 }
+    : { sx: cell, sy: cell, ox: 0, oy: -k * yr * 2 / 3 };
 }
 
 // Symmetry copies: a rotation (and optional mirror) matrix plus a color for each.
@@ -289,12 +299,13 @@ let spinAngle = 0;
 let hueShift = 0;
 let exporting = false;
 
-// Draws one frame. o: { w, h, px, src, pos, prevPos, dt, live }
+// Draws one frame. o: { w, h, vw, px, src, pos, prevPos, dt, live }
+// vw is the width of the area the picture is fitted to (see viewW).
 // px is device pixels per CSS pixel, so widths look the same at any output resolution.
 function renderFrame(o) {
   const s = settings;
   const { w, h, dt, live } = o;
-  const minDim = Math.min(w, h);
+  const minDim = Math.min(o.vw, h);
   if (live) {
     spinAngle += s.spin * dt;
     hueShift = (hueShift + s.hueSpeed * dt) % 360;
@@ -304,7 +315,7 @@ function renderFrame(o) {
   const tau = s.persistence;
   const decay = live && tau > 0 ? Math.exp(-dt / tau) : 0;
   const total = s.intensity * ENERGY[s.mode] * minDim * minDim * (live ? dt / (tau + 1 / 60) : 1);
-  const xr = w / minDim / s.zoom, yr = h / minDim / s.zoom;
+  const xr = o.vw / minDim / s.zoom, yr = h / minDim / s.zoom;
 
   // One layer for the whole signal, or one per frequency band.
   const layers = s.bands
@@ -327,6 +338,7 @@ function renderFrame(o) {
       copies: makeCopies(s, layer.color),
       sigma: s.beamWidth * o.px,
       scale: minDim / 2 * s.zoom,
+      cx: o.vw / 2,
     });
   }
   renderer.end({ glow: s.glow, glowSize: s.glowSize, glowScale: o.px, bg: hexToRgb(s.background) });
@@ -341,14 +353,20 @@ function frame(now) {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const w = Math.max(2, Math.round(window.innerWidth * dpr));
   const h = Math.max(2, Math.round(window.innerHeight * dpr));
-  if (renderer.resize(w, h)) { drawGrid(); resetBeam(); }
+  // Keep the picture clear of the settings panel while it is showing.
+  const cl = document.body.classList;
+  const panelShown = !cl.contains('hide-ui') && !cl.contains('hide-panel') && window.innerWidth >= 900;
+  const vw = w - (panelShown ? Math.round(314 * dpr) : 0);
+  const resized = renderer.resize(w, h);
+  if (resized || vw !== viewW) { viewW = vw; drawGrid(); }
+  if (resized) resetBeam();
 
   const src = audio.buffer ? audio : demo;
   const live = src === demo || audio.playing;
   const pos = src.visualSample;
   if (src !== lastSrc) { lastSrc = src; lastPos = pos; resetBeam(); }
 
-  renderFrame({ w, h, px: dpr, src, pos, prevPos: lastPos, dt, live });
+  renderFrame({ w, h, vw, px: dpr, src, pos, prevPos: lastPos, dt, live });
   lastPos = pos;
 
   $('play').textContent = audio.playing ? '⏸' : '▶';
@@ -397,6 +415,7 @@ async function runExport() {
   hueShift = 0;
   renderer.resize(W, H);
   renderer.begin(0);
+  viewW = W;
   drawGrid();
   resetBeam();
   resetLevels();
@@ -414,7 +433,7 @@ async function runExport() {
       L: audio.L, R: audio.R, sampleRate: sr, width: W, height: H, fps,
       isCancelled: () => cancelExport,
       drawFrame(pos) {
-        renderFrame({ w: W, h: H, px, src: audio, pos, prevPos, dt: 1 / fps, live: true });
+        renderFrame({ w: W, h: H, vw: W, px, src: audio, pos, prevPos, dt: 1 / fps, live: true });
         prevPos = pos;
         g.drawImage($('gl'), 0, 0);
         if (settings.grid) g.drawImage(gridCanvas, 0, 0);
@@ -451,6 +470,7 @@ async function runExport() {
     $('exProgress').hidden = true;
     ({ spinAngle, hueShift } = saved);
     lastSrc = null; // makes the live loop start a fresh trace
+    viewW = 0; // and redraw the graticule for the window
     resetLevels();
   }
 }

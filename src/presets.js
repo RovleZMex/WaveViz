@@ -61,7 +61,7 @@ export const BUILTIN = [
   },
   {
     name: 'Bandas: anillos',
-    settings: { mode: 'radial', bands: true, autoLevel: true, gainMid: 1, gainHigh: 1, bandLayout: 'split', timebaseMs: 40, radius: 0.6, zoom: 1.3, persistence: 0.15, glow: 1, spin: 6, grid: false, background: '#030406' },
+    settings: { mode: 'radial', bands: true, autoLevel: true, gainMid: 1, gainHigh: 1, bandLayout: 'split', timebaseMs: 40, radius: 0.5, persistence: 0.15, glow: 1, spin: 6, grid: false, background: '#030406' },
   },
   {
     name: 'Onda clásica',
@@ -96,7 +96,7 @@ export const SCHEMA = [
       { key: 'radius', type: 'range', label: 'Radio', min: 0.1, max: 0.9, step: 0.01, when: (s) => s.mode === 'radial' },
       { key: 'gain', type: 'range', label: 'Ganancia de señal', min: 0.1, max: 6, step: 0.05, unit: '×' },
       { key: 'autoLevel', type: 'check', label: 'Nivel automático' },
-      { key: 'zoom', type: 'range', label: 'Zoom', min: 0.3, max: 2.5, step: 0.01, unit: '×' },
+      { key: 'zoom', type: 'range', label: 'Zoom', min: 0.1, max: 3, step: 0.01, unit: '×' },
     ],
   },
   {
