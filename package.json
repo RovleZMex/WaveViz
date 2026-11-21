@@ -20,7 +20,8 @@
     "appId": "com.waveviz.app",
     "productName": "WaveViz",
     "files": ["main.js", "src/**/*"],
-    "mac": { "target": ["dmg"], "category": "public.app-category.music", "identity": "-" },
+    "afterPack": "build/adhoc-sign.js",
+    "mac": { "target": ["dmg"], "category": "public.app-category.music", "identity": null },
     "win": { "target": ["portable"] },
     "linux": { "target": ["AppImage"] }
   }
